@@ -697,6 +697,7 @@ function App() {
   function handleRerun(h) {
     setLastSearch({ query: h.query, drives: h.drives, ext: h.ext });
     setResults(FAKE_RESULTS);
+    setSearchMeta({ count: FAKE_RESULTS.length, durationMs: 1800, query: h.query, drives: h.drives });
     setView("results");
   }
 
