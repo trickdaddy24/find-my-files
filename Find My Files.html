@@ -39,7 +39,7 @@ const { useState, useEffect, useRef, useCallback } = React;
 
 // ── Fake data ────────────────────────────────────────────────────────────────
 const FAKE_RESULTS = [
-  { name:"quarterly_report_2025.xlsx", path:"D:\\Finance\\Reports", size:"2.4 MB", modified:"2025-12-01", type:"xlsx" },
+  { name:"quarterly_report_2025.xlsx", path:"D:\\Finance\\Reports",        size:"2.4 MB", modified:"2025-12-01", type:"xlsx" },
   { name:"quarterly_report_2024.xlsx", path:"C:\\Users\\admin\\Documents", size:"1.9 MB", modified:"2024-12-03", type:"xlsx" },
   { name:"report_template.docx",       path:"C:\\Users\\admin\\Templates", size:"340 KB", modified:"2025-03-14", type:"docx" },
   { name:"annual_report.pdf",          path:"D:\\Finance\\Annual",         size:"8.1 MB", modified:"2025-01-20", type:"pdf"  },
@@ -51,6 +51,11 @@ const FAKE_RESULTS = [
   { name:"draft_report.txt",           path:"C:\\Users\\admin\\Desktop",   size:"14 KB",  modified:"2025-10-05", type:"txt"  },
   { name:"client_report_acme.pdf",     path:"D:\\Clients\\ACME",           size:"5.7 MB", modified:"2025-08-11", type:"pdf"  },
   { name:"report_notes.txt",           path:"C:\\Users\\admin\\Notes",     size:"8 KB",   modified:"2025-07-22", type:"txt"  },
+  { name:"main.py",                    path:"C:\\Projects\\app",           size:"4 KB",   modified:"2025-11-30", type:"py"   },
+  { name:"utils.py",                   path:"C:\\Projects\\app",           size:"2 KB",   modified:"2025-11-29", type:"py"   },
+  { name:"config.py",                  path:"C:\\Projects\\app\\settings", size:"1 KB",   modified:"2025-10-15", type:"py"   },
+  { name:"scraper.py",                 path:"D:\\Scripts",                 size:"8 KB",   modified:"2025-09-01", type:"py"   },
+  { name:"backup.py",                  path:"D:\\Scripts\\tools",          size:"3 KB",   modified:"2025-08-20", type:"py"   },
 ];
 
 const HISTORY_INIT = [
@@ -62,8 +67,8 @@ const HISTORY_INIT = [
 
 const DRIVES_AVAILABLE = ["C:\\","D:\\","E:\\","F:\\"];
 
-const EXT_ICON = { xlsx:"file-spreadsheet", docx:"file-text", pdf:"file-type-2", txt:"file", exe:"settings-2", json:"braces", mp4:"film", jpg:"image", png:"image" };
-const EXT_COLOR = { xlsx:"#10B981", docx:"#2EC7FF", pdf:"#EF4444", txt:"#94A3B8", exe:"#F59E0B", json:"#8A4DFF" };
+const EXT_ICON = { xlsx:"file-spreadsheet", docx:"file-text", pdf:"file-type-2", txt:"file", exe:"settings-2", json:"braces", mp4:"film", jpg:"image", png:"image", py:"code" };
+const EXT_COLOR = { xlsx:"#10B981", docx:"#2EC7FF", pdf:"#EF4444", txt:"#94A3B8", exe:"#F59E0B", json:"#8A4DFF", py:"#F59E0B" };
 
 function typeIcon(t) { return EXT_ICON[t] || "file"; }
 function typeColor(t, dark) { return EXT_COLOR[t] || (dark ? "#64748B" : "#9CA3AF"); }
