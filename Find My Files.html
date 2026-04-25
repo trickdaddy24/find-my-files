@@ -755,7 +755,7 @@ function App() {
       resultSet = FAKE_RESULTS;
     }
     const displayQuery = query.trim() || ext.trim();
-    setLastSearch({ query, drives, ext });
+    setLastSearch({ query: displayQuery, drives, ext });
     setResults(resultSet);
     setSearchMeta({ count: resultSet.length, durationMs: durationMs ?? 1800, query: displayQuery, drives });
     setHistory(h => {
