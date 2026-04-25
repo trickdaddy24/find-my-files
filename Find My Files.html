@@ -189,7 +189,8 @@ function SearchPanel({ dark, onSearch, onCancel }) {
   }
 
   function doSearch() {
-    if (!query.trim() || drives.length === 0) return;
+    const hasExt = ext.trim() !== "*" && ext.trim() !== "" && ext.trim() !== "*.*";
+    if ((!query.trim() && !hasExt) || drives.length === 0) return;
     setSearching(true);
     setProgress(0);
     const startTime = Date.now();
@@ -303,7 +304,7 @@ function SearchPanel({ dark, onSearch, onCancel }) {
             variant="primary"
             dark={dark}
             icon="search"
-            disabled={!query.trim() || drives.length === 0}
+            disabled={(!query.trim() && (ext.trim() === "*" || ext.trim() === "" || ext.trim() === "*.*")) || drives.length === 0}
             onClick={doSearch}
           >
             Search
@@ -743,10 +744,20 @@ function App() {
     : "radial-gradient(circle at 80% 20%, rgba(138,77,255,.05), transparent 50%), radial-gradient(circle at 20% 80%, rgba(46,199,255,.04), transparent 50%)";
 
   function handleSearch({ query, drives, ext, durationMs }) {
-    const resultSet = query.trim().toLowerCase() === "zzz" ? [] : FAKE_RESULTS;
+    const q = query.trim().toLowerCase();
+    const normalizedExt = ext.replace(/^\*?\.?/, "").toLowerCase();
+    let resultSet;
+    if (q === "zzz") {
+      resultSet = [];
+    } else if (!q && normalizedExt && normalizedExt !== "*") {
+      resultSet = FAKE_RESULTS.filter(r => r.type === normalizedExt);
+    } else {
+      resultSet = FAKE_RESULTS;
+    }
+    const displayQuery = query.trim() || ext.trim();
     setLastSearch({ query, drives, ext });
     setResults(resultSet);
-    setSearchMeta({ count: resultSet.length, durationMs: durationMs ?? 1800, query, drives });
+    setSearchMeta({ count: resultSet.length, durationMs: durationMs ?? 1800, query: displayQuery, drives });
     setHistory(h => {
       const entry = { id: Date.now(), query, drives, ext, date: new Date().toISOString().slice(0,10), count: resultSet.length };
       return [entry, ...h].slice(0, 50);
