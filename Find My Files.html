@@ -160,13 +160,14 @@ function DriveChip({ label, selected, dark, onClick, onRemove }) {
 }
 
 // ── Search Panel ─────────────────────────────────────────────────────────────
-function SearchPanel({ dark, onSearch }) {
+function SearchPanel({ dark, onSearch, onCancel }) {
   const [query, setQuery]       = useState("");
   const [ext, setExt]           = useState("*");
   const [drives, setDrives]     = useState(["C:\\","D:\\"]);
   const [extra, setExtra]       = useState("");
   const [searching, setSearching] = useState(false);
   const [progress, setProgress] = useState(0);
+  const searchIntervalRef       = useRef(null);
 
   const border = dark ? "#1E293B" : "#E5E7EB";
   const surface = dark ? "#0F172A" : "#fff";
@@ -192,17 +193,24 @@ function SearchPanel({ dark, onSearch }) {
     setProgress(0);
     const startTime = Date.now();
     let p = 0;
-    const iv = setInterval(() => {
+    searchIntervalRef.current = setInterval(() => {
       p += Math.random() * 18 + 5;
-      if (p >= 100) { p = 100; clearInterval(iv); }
+      if (p >= 100) { p = 100; clearInterval(searchIntervalRef.current); }
       setProgress(Math.min(p, 100));
     }, 120);
     setTimeout(() => {
-      clearInterval(iv);
+      clearInterval(searchIntervalRef.current);
       setProgress(100);
       setSearching(false);
       onSearch({ query: query.trim(), drives, ext, durationMs: Date.now() - startTime });
     }, 1800);
+  }
+
+  function doCancel() {
+    clearInterval(searchIntervalRef.current);
+    setSearching(false);
+    setProgress(0);
+    onCancel();
   }
 
   return (
@@ -268,15 +276,37 @@ function SearchPanel({ dark, onSearch }) {
 
       {/* Search button + progress */}
       <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-        <Button
-          variant="primary"
-          dark={dark}
-          icon={searching ? "loader" : "search"}
-          disabled={!query.trim() || drives.length === 0 || searching}
-          onClick={doSearch}
-        >
-          {searching ? "Searching…" : "Search"}
-        </Button>
+        {searching ? (
+          <button style={{
+            padding: "10px 22px",
+            borderRadius: 8,
+            fontSize: 14,
+            fontWeight: 500,
+            border: "2px solid rgba(239,68,68,.4)",
+            background: "rgba(239,68,68,.15)",
+            color: "#F87171",
+            cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 7,
+            width: "100%",
+            fontFamily: "inherit",
+            transition: "all .2s",
+          }} onClick={doCancel}>
+            ✕  Cancel Search
+          </button>
+        ) : (
+          <Button
+            variant="primary"
+            dark={dark}
+            icon="search"
+            disabled={!query.trim() || drives.length === 0}
+            onClick={doSearch}
+          >
+            Search
+          </Button>
+        )}
         {searching && (
           <div style={{ height:3, background: dark ? "#1E293B" : "#E5E7EB", borderRadius:2, overflow:"hidden" }}>
             <div style={{
@@ -701,6 +731,10 @@ function App() {
     setView("results");
   }
 
+  function handleCancel() {
+    setSearchMeta({ cancelled: true });
+  }
+
   return (
     <div style={{ display:"flex", flexDirection:"column", height:"100vh", background:bg, backgroundImage:radialBg, overflow:"hidden", transition:"background .3s" }}>
       <div style={{ display:"flex", flex:1, overflow:"hidden" }}>
@@ -713,7 +747,7 @@ function App() {
 
       <main style={{ flex:1, overflow:"auto", display:"flex", flexDirection:"column" }}>
         {view === "search" && (
-          <SearchPanel dark={dark} onSearch={handleSearch} />
+          <SearchPanel dark={dark} onSearch={handleSearch} onCancel={handleCancel} />
         )}
         {view === "results" && results && (
           <ResultsTable
