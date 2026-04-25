@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Find My Files</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body, #root { height: 100%; }
+  body {
+    font-family: "Geist", "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(100,100,100,.3); border-radius: 3px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes fade-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  @keyframes shimmer {
+    0% { background-position: -400px 0; }
+    100% { background-position: 400px 0; }
+  }
+  .fade-in { animation: fade-in .25s ease-out both; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" src="Primitives.jsx"></script>
+<script type="text/babel">
+/* global React, lucide */
+const { useState, useEffect, useRef, useCallback } = React;
+
+// ── Fake data ────────────────────────────────────────────────────────────────
+const FAKE_RESULTS = [
+  { name:"quarterly_report_2025.xlsx", path:"D:\\Finance\\Reports", size:"2.4 MB", modified:"2025-12-01", type:"xlsx" },
+  { name:"quarterly_report_2024.xlsx", path:"C:\\Users\\admin\\Documents", size:"1.9 MB", modified:"2024-12-03", type:"xlsx" },
+  { name:"report_template.docx",       path:"C:\\Users\\admin\\Templates", size:"340 KB", modified:"2025-03-14", type:"docx" },
+  { name:"annual_report.pdf",          path:"D:\\Finance\\Annual",         size:"8.1 MB", modified:"2025-01-20", type:"pdf"  },
+  { name:"report_v2_FINAL.xlsx",       path:"E:\\Backups\\Work\\Finance",  size:"3.2 MB", modified:"2025-11-28", type:"xlsx" },
+  { name:"report_v2_FINAL_v2.xlsx",    path:"E:\\Backups\\Work\\Finance",  size:"3.2 MB", modified:"2025-11-29", type:"xlsx" },
+  { name:"expense_report_q3.xlsx",     path:"D:\\Finance\\Expenses",       size:"512 KB", modified:"2025-09-30", type:"xlsx" },
+  { name:"status_report_nov.docx",     path:"C:\\Users\\admin\\Desktop",   size:"120 KB", modified:"2025-11-15", type:"docx" },
+  { name:"report_backup.xlsx",         path:"E:\\Backups\\Old",            size:"1.8 MB", modified:"2024-06-01", type:"xlsx" },
+  { name:"draft_report.txt",           path:"C:\\Users\\admin\\Desktop",   size:"14 KB",  modified:"2025-10-05", type:"txt"  },
+  { name:"client_report_acme.pdf",     path:"D:\\Clients\\ACME",           size:"5.7 MB", modified:"2025-08-11", type:"pdf"  },
+  { name:"report_notes.txt",           path:"C:\\Users\\admin\\Notes",     size:"8 KB",   modified:"2025-07-22", type:"txt"  },
+];
+
+const HISTORY_INIT = [
+  { id:1, query:"report", drives:["C:\\","D:\\"], ext:"*.xlsx", date:"2025-12-01", count:9  },
+  { id:2, query:"backup", drives:["E:\\"],        ext:"*",      date:"2025-11-28", count:23 },
+  { id:3, query:"invoice",drives:["C:\\","D:\\"], ext:"*.pdf",  date:"2025-11-14", count:4  },
+  { id:4, query:"config", drives:["C:\\"],        ext:"*.json", date:"2025-10-30", count:11 },
+];
+
+const DRIVES_AVAILABLE = ["C:\\","D:\\","E:\\","F:\\"];
+
+const EXT_ICON = { xlsx:"file-spreadsheet", docx:"file-text", pdf:"file-type-2", txt:"file", exe:"settings-2", json:"braces", mp4:"film", jpg:"image", png:"image" };
+const EXT_COLOR = { xlsx:"#10B981", docx:"#2EC7FF", pdf:"#EF4444", txt:"#94A3B8", exe:"#F59E0B", json:"#8A4DFF" };
+
+function typeIcon(t) { return EXT_ICON[t] || "file"; }
+function typeColor(t, dark) { return EXT_COLOR[t] || (dark ? "#64748B" : "#9CA3AF"); }
+
+// ── Sidebar ──────────────────────────────────────────────────────────────────
+function Sidebar({ dark, active, onNav, onToggleDark }) {
+  const bg     = dark ? "#0F172A" : "#fff";
+  const border = dark ? "#1E293B" : "#E5E7EB";
+  const ink    = dark ? "#94A3B8" : "#6B7280";
+  const strong = dark ? "#F1F5F9" : "#0B0F2A";
+
+  const items = [
+    { k:"search",   label:"Search",   icon:"search"   },
+    { k:"history",  label:"History",  icon:"clock"    },
+    { k:"settings", label:"Settings", icon:"settings" },
+  ];
+
+  return (
+    <aside style={{ width:200, flexShrink:0, background:bg, borderRight:`1px solid ${border}`, display:"flex", flexDirection:"column" }}>
+      {/* Brand */}
+      <div style={{ padding:"20px 16px 16px", borderBottom:`1px solid ${border}` }}>
+        <div style={{ display:"flex", alignItems:"center", gap:9 }}>
+          <div style={{
+            width:30, height:30, borderRadius:8,
+            background: dark ? "transparent" : "#8A4DFF",
+            border: dark ? "2px solid #00E0FF" : "none",
+            boxShadow: dark ? "0 0 10px rgba(0,224,255,.5)" : "none",
+            display:"flex", alignItems:"center", justifyContent:"center",
+          }}>
+            <Icon name="search" size={15} color={dark ? "#00E0FF" : "#fff"} />
+          </div>
+          <div>
+            <div style={{ fontSize:14, fontWeight:700, color:strong, letterSpacing:"-0.01em" }}>Find My Files</div>
+            <div style={{ fontSize:10, color: dark ? "#475569" : "#9CA3AF" }}>v0.1.0</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Nav */}
+      <nav style={{ flex:1, padding:"12px 10px", display:"flex", flexDirection:"column", gap:3 }}>
+        {items.map(item => {
+          const on = active === item.k;
+          return (
+            <button key={item.k} onClick={() => onNav(item.k)} style={{
+              width:"100%", display:"flex", alignItems:"center", gap:10,
+              padding:"8px 12px", borderRadius:8, border:0, fontSize:13, fontWeight:500,
+              cursor:"pointer", textAlign:"left", fontFamily:"inherit",
+              background: on ? (dark ? "rgba(0,224,255,.08)" : "#F5F3FF") : "transparent",
+              color: on ? (dark ? "#00E0FF" : "#8A4DFF") : ink,
+              boxShadow: on && dark ? "inset 0 0 0 1px rgba(0,224,255,.2)" : "none",
+              transition:"all .15s",
+            }}>
+              <Icon name={item.icon} size={15} color={on ? (dark ? "#00E0FF" : "#8A4DFF") : ink} />
+              {item.label}
+            </button>
+          );
+        })}
+      </nav>
+
+      {/* Dark toggle */}
+      <div style={{ padding:"12px 10px", borderTop:`1px solid ${border}` }}>
+        <button onClick={onToggleDark} style={{
+          width:"100%", display:"flex", alignItems:"center", gap:10,
+          padding:"8px 12px", borderRadius:8, border:0, fontSize:13, fontWeight:500,
+          cursor:"pointer", fontFamily:"inherit", color:ink, background:"transparent",
+        }}>
+          <Icon name={dark ? "sun" : "moon"} size={15} color={ink} />
+          {dark ? "Light mode" : "Dark mode"}
+        </button>
+      </div>
+    </aside>
+  );
+}
+
+// ── Drive chip ───────────────────────────────────────────────────────────────
+function DriveChip({ label, selected, dark, onClick, onRemove }) {
+  return (
+    <div onClick={onClick} style={{
+      display:"inline-flex", alignItems:"center", gap:5,
+      padding:"5px 10px", borderRadius:20, fontSize:12, fontWeight:600,
+      cursor:"pointer", userSelect:"none", fontFamily:"Geist Mono, monospace",
+      background: selected ? (dark ? "rgba(0,224,255,.12)" : "#EDE9FE") : (dark ? "rgba(255,255,255,.04)" : "#F3F4F6"),
+      color: selected ? (dark ? "#00E0FF" : "#8A4DFF") : (dark ? "#64748B" : "#9CA3AF"),
+      border: `1px solid ${selected ? (dark ? "rgba(0,224,255,.3)" : "#C4B5FD") : (dark ? "#1E293B" : "#E5E7EB")}`,
+      transition:"all .15s",
+    }}>
+      <Icon name="hard-drive" size={12} color={selected ? (dark ? "#00E0FF" : "#8A4DFF") : (dark ? "#64748B" : "#9CA3AF")} />
+      {label}
+      {onRemove && selected && (
+        <span onClick={e => { e.stopPropagation(); onRemove(); }} style={{ marginLeft:1, opacity:.7, lineHeight:1 }}>×</span>
+      )}
+    </div>
+  );
+}
+
+// ── Search Panel ─────────────────────────────────────────────────────────────
+function SearchPanel({ dark, onSearch }) {
+  const [query, setQuery]       = useState("");
+  const [ext, setExt]           = useState("*");
+  const [drives, setDrives]     = useState(["C:\\","D:\\"]);
+  const [extra, setExtra]       = useState("");
+  const [searching, setSearching] = useState(false);
+  const [progress, setProgress] = useState(0);
+
+  const border = dark ? "#1E293B" : "#E5E7EB";
+  const surface = dark ? "#0F172A" : "#fff";
+  const ink = dark ? "#F1F5F9" : "#0B0F2A";
+  const subtle = dark ? "#94A3B8" : "#6B7280";
+
+  function toggleDrive(d) {
+    setDrives(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d]);
+  }
+
+  function addExtra(e) {
+    e.preventDefault();
+    const v = extra.trim().toUpperCase();
+    if (!v) return;
+    const norm = v.endsWith(":\\") ? v : v + ":\\";
+    if (!drives.includes(norm)) setDrives(p => [...p, norm]);
+    setExtra("");
+  }
+
+  function doSearch() {
+    if (!query.trim() || drives.length === 0) return;
+    setSearching(true);
+    setProgress(0);
+    let p = 0;
+    const iv = setInterval(() => {
+      p += Math.random() * 18 + 5;
+      if (p >= 100) { p = 100; clearInterval(iv); }
+      setProgress(Math.min(p, 100));
+    }, 120);
+    setTimeout(() => {
+      clearInterval(iv);
+      setProgress(100);
+      setSearching(false);
+      onSearch({ query: query.trim(), drives, ext });
+    }, 1800);
+  }
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:20, padding:"28px 32px", maxWidth:720 }}>
+      {/* Headline */}
+      <div>
+        <h1 style={{ fontSize:22, fontWeight:700, color:ink, letterSpacing:"-0.01em" }}>Search</h1>
+        <p style={{ fontSize:13, color:subtle, marginTop:3 }}>Find files and folders across your drives.</p>
+      </div>
+
+      {/* Query + extension row */}
+      <div style={{ display:"flex", gap:12, alignItems:"flex-end" }}>
+        <Input
+          label="File name"
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder='e.g. "report" or "config"'
+          dark={dark}
+          style={{ flex:1 }}
+          right={query ? <span onClick={() => setQuery("")} style={{ cursor:"pointer" }}>×</span> : null}
+        />
+        <Input
+          label="Extension filter"
+          value={ext}
+          onChange={e => setExt(e.target.value)}
+          placeholder="* or *.xlsx"
+          dark={dark}
+          style={{ width:140 }}
+        />
+      </div>
+
+      {/* Drives */}
+      <div style={{ background:surface, border:`1px solid ${border}`, borderRadius:12, padding:18 }}>
+        <div style={{ fontSize:12, fontWeight:600, letterSpacing:".08em", textTransform:"uppercase", color:subtle, marginBottom:12 }}>Drives to Search</div>
+        <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:14 }}>
+          {DRIVES_AVAILABLE.map(d => (
+            <DriveChip key={d} label={d} selected={drives.includes(d)} dark={dark} onClick={() => toggleDrive(d)} />
+          ))}
+          {drives.filter(d => !DRIVES_AVAILABLE.includes(d)).map(d => (
+            <DriveChip key={d} label={d} selected dark={dark} onClick={() => {}} onRemove={() => setDrives(p => p.filter(x => x !== d))} />
+          ))}
+        </div>
+        <form onSubmit={addExtra} style={{ display:"flex", gap:8, alignItems:"center" }}>
+          <input
+            value={extra}
+            onChange={e => setExtra(e.target.value)}
+            placeholder="Add drive… e.g. G:"
+            style={{
+              flex:1, padding:"7px 11px", borderRadius:7, fontSize:12, fontFamily:"Geist Mono, monospace",
+              background: dark ? "#1E293B" : "#F3F4F6",
+              border:`1px solid ${dark ? "#334155" : "#D1D5DB"}`,
+              color: dark ? "#CBD5E1" : "#374151", outline:"none",
+            }}
+          />
+          <button type="submit" style={{
+            padding:"7px 14px", borderRadius:7, fontSize:12, fontWeight:500,
+            background: dark ? "transparent" : "#8A4DFF",
+            border: dark ? "1px solid rgba(0,224,255,.3)" : "none",
+            color: dark ? "#00E0FF" : "#fff", cursor:"pointer", fontFamily:"inherit",
+          }}>Add</button>
+        </form>
+      </div>
+
+      {/* Search button + progress */}
+      <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+        <Button
+          variant="primary"
+          dark={dark}
+          icon={searching ? "loader" : "search"}
+          disabled={!query.trim() || drives.length === 0 || searching}
+          onClick={doSearch}
+        >
+          {searching ? "Searching…" : "Search"}
+        </Button>
+        {searching && (
+          <div style={{ height:3, background: dark ? "#1E293B" : "#E5E7EB", borderRadius:2, overflow:"hidden" }}>
+            <div style={{
+              height:"100%", borderRadius:2,
+              width:`${progress}%`,
+              background: dark ? "#00E0FF" : "#8A4DFF",
+              boxShadow: dark ? "0 0 6px #00E0FF" : "none",
+              transition:"width .15s ease-out",
+            }} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Results Table ─────────────────────────────────────────────────────────────
+function ResultsTable({ dark, results, query, drives, ext, onNewSearch }) {
+  const [sort, setSort] = useState({ col:"name", dir:"asc" });
+  const [filter, setFilter] = useState("");
+  const [selected, setSelected] = useState(new Set());
+  const [openedPath, setOpenedPath] = useState(null);
+
+  const border  = dark ? "#1E293B" : "#E5E7EB";
+  const surface = dark ? "#0F172A" : "#fff";
+  const ink     = dark ? "#F1F5F9" : "#0B0F2A";
+  const subtle  = dark ? "#94A3B8" : "#6B7280";
+  const muted   = dark ? "#64748B" : "#9CA3AF";
+
+  const filtered = results.filter(r =>
+    !filter || r.name.toLowerCase().includes(filter.toLowerCase()) || r.path.toLowerCase().includes(filter.toLowerCase())
+  );
+
+  const sorted = [...filtered].sort((a, b) => {
+    const v = a[sort.col] < b[sort.col] ? -1 : a[sort.col] > b[sort.col] ? 1 : 0;
+    return sort.dir === "asc" ? v : -v;
+  });
+
+  function toggleSort(col) {
+    setSort(s => s.col === col ? { col, dir: s.dir === "asc" ? "desc" : "asc" } : { col, dir: "asc" });
+  }
+
+  function toggleAll() {
+    if (selected.size === sorted.length) setSelected(new Set());
+    else setSelected(new Set(sorted.map((_, i) => i)));
+  }
+
+  function exportCSV() {
+    const header = ["Name","Path","Size","Modified","Type"];
+    const rows = sorted.map(r => [r.name, r.path, r.size, r.modified, r.type].map(v => `"${v}"`).join(","));
+    const csv = [header.join(","), ...rows].join("\n");
+    const a = document.createElement("a");
+    a.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csv);
+    a.download = `findmyfiles-${query}-${Date.now()}.csv`;
+    a.click();
+  }
+
+  function exportHTML() {
+    const rows = sorted.map(r => `<tr><td>${r.name}</td><td><code>${r.path}</code></td><td>${r.size}</td><td>${r.modified}</td><td>${r.type}</td></tr>`).join("");
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Find My Files — ${query}</title><style>body{font-family:system-ui;padding:32px;max-width:1100px;margin:auto}h1{margin-bottom:4px}p{color:#6B7280;font-size:13px;margin-bottom:24px}table{width:100%;border-collapse:collapse}th{text-align:left;padding:10px 14px;background:#F3F4F6;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#9CA3AF}td{padding:10px 14px;font-size:13px;border-bottom:1px solid #F3F4F6}code{font-family:monospace;background:#F3F4F6;padding:2px 6px;border-radius:4px;font-size:12px}</style></head><body><h1>Find My Files</h1><p>Query: <strong>${query}</strong> &nbsp;·&nbsp; Extension: <strong>${ext}</strong> &nbsp;·&nbsp; Drives: ${drives.join(", ")} &nbsp;·&nbsp; ${sorted.length} results</p><table><thead><tr><th>Name</th><th>Path</th><th>Size</th><th>Modified</th><th>Type</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
+    const a = document.createElement("a");
+    a.href = "data:text/html;charset=utf-8," + encodeURIComponent(html);
+    a.download = `findmyfiles-${query}-${Date.now()}.html`;
+    a.click();
+  }
+
+  const ColHeader = ({ col, label, width }) => {
+    const on = sort.col === col;
+    return (
+      <th onClick={() => toggleSort(col)} style={{
+        padding:"10px 14px", fontSize:11, fontWeight:600, letterSpacing:".08em",
+        textTransform:"uppercase", color:muted, borderBottom:`1px solid ${border}`,
+        cursor:"pointer", userSelect:"none", background:surface, width,
+        whiteSpace:"nowrap",
+      }}>
+        <span style={{ display:"inline-flex", alignItems:"center", gap:5 }}>
+          {label}
+          {on && <Icon name={sort.dir === "asc" ? "chevron-up" : "chevron-down"} size={11} color={dark ? "#00E0FF" : "#8A4DFF"} />}
+        </span>
+      </th>
+    );
+  };
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", height:"100%", overflow:"hidden" }}>
+      {/* Toolbar */}
+      <div style={{ padding:"20px 28px 14px", flexShrink:0 }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
+          <div>
+            <h1 style={{ fontSize:20, fontWeight:700, color:ink, letterSpacing:"-0.01em" }}>
+              Results
+              <span style={{ fontSize:13, fontWeight:500, color:subtle, marginLeft:10 }}>
+                {sorted.length} of {results.length} files
+              </span>
+            </h1>
+            <p style={{ fontSize:12, color:muted, marginTop:2, fontFamily:"Geist Mono, monospace" }}>
+              {drives.join("  ")} &nbsp;·&nbsp; "{query}" &nbsp;·&nbsp; {ext}
+            </p>
+          </div>
+          <div style={{ display:"flex", gap:8 }}>
+            <Button variant="secondary" dark={dark} icon="download" small onClick={exportCSV}>Export CSV</Button>
+            <Button variant="secondary" dark={dark} icon="file-code" small onClick={exportHTML}>Export HTML</Button>
+            <Button variant="ghost" dark={dark} icon="search" small onClick={onNewSearch}>New Search</Button>
+          </div>
+        </div>
+        <Input
+          value={filter}
+          onChange={e => setFilter(e.target.value)}
+          placeholder="Filter results…"
+          dark={dark}
+          right={filter ? <span onClick={() => setFilter("")} style={{ cursor:"pointer" }}>×</span> : <Icon name="filter" size={13} />}
+        />
+      </div>
+
+      {/* Table */}
+      <div style={{ flex:1, overflow:"auto", padding:"0 28px 20px" }}>
+        <table style={{ width:"100%", borderCollapse:"collapse", background:surface, border:`1px solid ${border}`, borderRadius:10, overflow:"hidden" }}>
+          <thead>
+            <tr>
+              <th style={{ padding:"10px 14px", borderBottom:`1px solid ${border}`, background:surface, width:36 }}>
+                <input type="checkbox" checked={selected.size === sorted.length && sorted.length > 0} onChange={toggleAll}
+                  style={{ accentColor:"#8A4DFF", cursor:"pointer" }} />
+              </th>
+              <ColHeader col="name"     label="Name"     width="30%" />
+              <ColHeader col="path"     label="Path"     width="35%" />
+              <ColHeader col="size"     label="Size"     width="10%" />
+              <ColHeader col="modified" label="Modified" width="12%" />
+              <ColHeader col="type"     label="Type"     width="8%"  />
+              <th style={{ padding:"10px 14px", borderBottom:`1px solid ${border}`, background:surface, width:80 }}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((r, i) => {
+              const sel = selected.has(i);
+              const opened = openedPath === (r.path + "\\" + r.name);
+              return (
+                <tr key={i} className="fade-in" style={{
+                  background: sel ? (dark ? "rgba(138,77,255,.08)" : "#FAF5FF") : "transparent",
+                  borderBottom: i < sorted.length - 1 ? `1px solid ${dark ? "#1E293B" : "#F3F4F6"}` : "none",
+                  animationDelay: `${i * 30}ms`,
+                }}>
+                  <td style={{ padding:"10px 14px" }}>
+                    <input type="checkbox" checked={sel} onChange={() => {
+                      setSelected(s => { const n = new Set(s); n.has(i) ? n.delete(i) : n.add(i); return n; });
+                    }} style={{ accentColor:"#8A4DFF", cursor:"pointer" }} />
+                  </td>
+                  <td style={{ padding:"10px 14px" }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:9 }}>
+                      <div style={{ width:28, height:28, borderRadius:7, background: dark ? "rgba(255,255,255,.04)" : "#F3F4F6", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                        <Icon name={typeIcon(r.type)} size={13} color={typeColor(r.type, dark)} />
+                      </div>
+                      <span style={{ fontSize:13, fontWeight:500, color:ink, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:200 }}>{r.name}</span>
+                    </div>
+                  </td>
+                  <td style={{ padding:"10px 14px", fontSize:11.5, color:subtle, fontFamily:"Geist Mono, monospace", maxWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                    {r.path}
+                  </td>
+                  <td style={{ padding:"10px 14px", fontSize:12, color:subtle, whiteSpace:"nowrap" }}>{r.size}</td>
+                  <td style={{ padding:"10px 14px", fontSize:12, color:muted, fontFamily:"Geist Mono, monospace", whiteSpace:"nowrap" }}>{r.modified}</td>
+                  <td style={{ padding:"10px 14px" }}>
+                    <span style={{
+                      padding:"2px 8px", borderRadius:9999, fontSize:11, fontWeight:600,
+                      background: dark ? `${typeColor(r.type, dark)}18` : `${typeColor(r.type, false)}18`,
+                      color: typeColor(r.type, dark),
+                    }}>.{r.type}</span>
+                  </td>
+                  <td style={{ padding:"10px 14px", textAlign:"right" }}>
+                    <button onClick={() => setOpenedPath(r.path + "\\" + r.name)} title="Open in Explorer" style={{
+                      background: opened ? (dark ? "rgba(0,224,255,.1)" : "#EDE9FE") : "transparent",
+                      border: "none", cursor:"pointer", borderRadius:6, padding:"5px 7px",
+                      color: opened ? (dark ? "#00E0FF" : "#8A4DFF") : muted,
+                      display:"inline-flex", alignItems:"center",
+                    }}>
+                      <Icon name="folder-open" size={13} />
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        {sorted.length === 0 && (
+          <div style={{ textAlign:"center", padding:"48px 0", color:muted }}>
+            <Icon name="search-x" size={28} color={muted} style={{ marginBottom:10, display:"block", margin:"0 auto 12px" }} />
+            <div style={{ fontSize:14 }}>No results match your filter.</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── History ───────────────────────────────────────────────────────────────────
+function HistoryPanel({ dark, history, onRerun, onClear }) {
+  const border  = dark ? "#1E293B" : "#E5E7EB";
+  const surface = dark ? "#0F172A" : "#fff";
+  const ink     = dark ? "#F1F5F9" : "#0B0F2A";
+  const subtle  = dark ? "#94A3B8" : "#6B7280";
+  const muted   = dark ? "#64748B" : "#9CA3AF";
+
+  return (
+    <div style={{ padding:"28px 32px", maxWidth:680 }}>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20 }}>
+        <div>
+          <h1 style={{ fontSize:22, fontWeight:700, color:ink, letterSpacing:"-0.01em" }}>Search History</h1>
+          <p style={{ fontSize:13, color:subtle, marginTop:3 }}>Last {history.length} searches.</p>
+        </div>
+        {history.length > 0 && (
+          <Button variant="danger" dark={dark} icon="trash-2" small onClick={onClear}>Clear All</Button>
+        )}
+      </div>
+
+      {history.length === 0 && (
+        <div style={{ textAlign:"center", padding:"56px 0", color:muted }}>
+          <Icon name="clock" size={28} color={muted} style={{ display:"block", margin:"0 auto 12px" }} />
+          <div style={{ fontSize:14 }}>No searches yet.</div>
+        </div>
+      )}
+
+      <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+        {history.map((h, i) => (
+          <div key={h.id} className="fade-in" style={{
+            background:surface, border:`1px solid ${border}`, borderRadius:10, padding:"14px 18px",
+            display:"flex", alignItems:"center", gap:14,
+            animationDelay:`${i * 40}ms`,
+          }}>
+            <div style={{ width:36, height:36, borderRadius:9999, background: dark ? "rgba(0,224,255,.08)" : "#F5F3FF", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+              <Icon name="search" size={15} color={dark ? "#00E0FF" : "#8A4DFF"} />
+            </div>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontSize:14, fontWeight:600, color:ink }}>&ldquo;{h.query}&rdquo;</div>
+              <div style={{ fontSize:12, color:subtle, marginTop:2, display:"flex", gap:10 }}>
+                <span style={{ fontFamily:"Geist Mono, monospace" }}>{h.ext}</span>
+                <span>·</span>
+                <span>{h.drives.join(", ")}</span>
+                <span>·</span>
+                <span>{h.count} results</span>
+              </div>
+            </div>
+            <div style={{ fontSize:11, color:muted, whiteSpace:"nowrap" }}>{h.date}</div>
+            <Button variant="secondary" dark={dark} icon="rotate-ccw" small onClick={() => onRerun(h)}>
+              Re-run
+            </Button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Settings ──────────────────────────────────────────────────────────────────
+function SettingsPanel({ dark, defaultDrives, setDefaultDrives, maxResults, setMaxResults, showHidden, setShowHidden, exportPath, setExportPath }) {
+  const border  = dark ? "#1E293B" : "#E5E7EB";
+  const surface = dark ? "#0F172A" : "#fff";
+  const ink     = dark ? "#F1F5F9" : "#0B0F2A";
+  const subtle  = dark ? "#94A3B8" : "#6B7280";
+
+  const Section = ({ title, children }) => (
+    <div style={{ background:surface, border:`1px solid ${border}`, borderRadius:12, padding:22, marginBottom:16 }}>
+      <h3 style={{ fontSize:13, fontWeight:600, color:ink, marginBottom:14, letterSpacing:"-0.01em" }}>{title}</h3>
+      {children}
+    </div>
+  );
+
+  const Row = ({ label, hint, children }) => (
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"10px 0", borderTop:`1px solid ${dark ? "#1E293B" : "#F3F4F6"}` }}>
+      <div>
+        <div style={{ fontSize:13, fontWeight:500, color:ink }}>{label}</div>
+        {hint && <div style={{ fontSize:11.5, color:subtle, marginTop:1 }}>{hint}</div>}
+      </div>
+      {children}
+    </div>
+  );
+
+  return (
+    <div style={{ padding:"28px 32px", maxWidth:580 }}>
+      <h1 style={{ fontSize:22, fontWeight:700, color:ink, letterSpacing:"-0.01em", marginBottom:4 }}>Settings</h1>
+      <p style={{ fontSize:13, color:subtle, marginBottom:22 }}>Persisted to %APPDATA%/find-my-files/settings.json</p>
+
+      <Section title="Default Drives">
+        <div style={{ fontSize:12, color:subtle, marginBottom:12 }}>Select which drives to include in every new search.</div>
+        <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+          {DRIVES_AVAILABLE.map(d => (
+            <DriveChip key={d} label={d} dark={dark}
+              selected={defaultDrives.includes(d)}
+              onClick={() => setDefaultDrives(p => p.includes(d) ? p.filter(x=>x!==d) : [...p, d])} />
+          ))}
+        </div>
+      </Section>
+
+      <Section title="Search Behavior">
+        <Row label="Max results" hint="Stops scanning after this many hits.">
+          <input type="number" value={maxResults} onChange={e => setMaxResults(Number(e.target.value))}
+            style={{
+              width:90, padding:"6px 10px", borderRadius:7, fontSize:13, textAlign:"right",
+              fontFamily:"Geist Mono, monospace",
+              background: dark ? "#1E293B" : "#F3F4F6",
+              border:`1px solid ${dark ? "#334155" : "#D1D5DB"}`,
+              color: dark ? "#F1F5F9" : "#0B0F2A", outline:"none",
+            }} />
+        </Row>
+        <Row label="Show hidden files" hint="Include files and folders starting with a dot or marked hidden.">
+          <label style={{ display:"flex", alignItems:"center", gap:8, cursor:"pointer" }}>
+            <div onClick={() => setShowHidden(p=>!p)} style={{
+              width:40, height:22, borderRadius:11, position:"relative",
+              background: showHidden ? (dark ? "#00E0FF" : "#8A4DFF") : (dark ? "#334155" : "#D1D5DB"),
+              boxShadow: showHidden && dark ? "0 0 8px rgba(0,224,255,.5)" : "none",
+              transition:"all .2s",
+              cursor:"pointer",
+            }}>
+              <div style={{
+                width:16, height:16, borderRadius:9999, background:"#fff",
+                position:"absolute", top:3, left: showHidden ? 21 : 3,
+                transition:"left .2s", boxShadow:"0 1px 3px rgba(0,0,0,.2)",
+              }} />
+            </div>
+            <span style={{ fontSize:12, color:subtle }}>{showHidden ? "On" : "Off"}</span>
+          </label>
+        </Row>
+      </Section>
+
+      <Section title="Export">
+        <Row label="Default export folder" hint="Where CSV and HTML exports are saved.">
+          <div></div>
+        </Row>
+        <Input
+          value={exportPath}
+          onChange={e => setExportPath(e.target.value)}
+          dark={dark}
+          placeholder="%USERPROFILE%\Documents"
+          right={<Icon name="folder" size={13} />}
+        />
+      </Section>
+    </div>
+  );
+}
+
+// ── App root ──────────────────────────────────────────────────────────────────
+function App() {
+  const [dark, setDark]           = useState(() => JSON.parse(localStorage.getItem("fmf-dark") ?? "true"));
+  const [view, setView]           = useState("search");
+  const [results, setResults]     = useState(null);
+  const [lastSearch, setLastSearch] = useState(null);
+  const [history, setHistory]     = useState(HISTORY_INIT);
+  const [defaultDrives, setDefaultDrives] = useState(["C:\\","D:\\"]);
+  const [maxResults, setMaxResults]       = useState(5000);
+  const [showHidden, setShowHidden]       = useState(false);
+  const [exportPath, setExportPath]       = useState("%USERPROFILE%\\Documents");
+
+  useEffect(() => { localStorage.setItem("fmf-dark", JSON.stringify(dark)); }, [dark]);
+  useEffect(() => { if (window.lucide) lucide.createIcons(); });
+
+  const bg     = dark ? "#0B0F2A" : "#F9FAFB";
+  const border = dark ? "#1E293B" : "#E5E7EB";
+  const radialBg = dark
+    ? "radial-gradient(circle at 20% 30%, rgba(138,77,255,.1), transparent 50%), radial-gradient(circle at 80% 70%, rgba(0,224,255,.06), transparent 50%)"
+    : "radial-gradient(circle at 80% 20%, rgba(138,77,255,.05), transparent 50%), radial-gradient(circle at 20% 80%, rgba(46,199,255,.04), transparent 50%)";
+
+  function handleSearch({ query, drives, ext }) {
+    setLastSearch({ query, drives, ext });
+    setResults(FAKE_RESULTS);
+    setHistory(h => {
+      const entry = { id: Date.now(), query, drives, ext, date: new Date().toISOString().slice(0,10), count: FAKE_RESULTS.length };
+      return [entry, ...h].slice(0, 50);
+    });
+    setView("results");
+  }
+
+  function handleRerun(h) {
+    setLastSearch({ query: h.query, drives: h.drives, ext: h.ext });
+    setResults(FAKE_RESULTS);
+    setView("results");
+  }
+
+  return (
+    <div style={{ display:"flex", height:"100vh", background:bg, backgroundImage:radialBg, overflow:"hidden", transition:"background .3s" }}>
+      <Sidebar
+        dark={dark}
+        active={view === "results" ? "search" : view}
+        onNav={v => { setView(v); }}
+        onToggleDark={() => setDark(d => !d)}
+      />
+
+      <main style={{ flex:1, overflow:"auto", display:"flex", flexDirection:"column" }}>
+        {view === "search" && (
+          <SearchPanel dark={dark} onSearch={handleSearch} />
+        )}
+        {view === "results" && results && (
+          <ResultsTable
+            dark={dark}
+            results={results}
+            query={lastSearch.query}
+            drives={lastSearch.drives}
+            ext={lastSearch.ext}
+            onNewSearch={() => setView("search")}
+          />
+        )}
+        {view === "history" && (
+          <HistoryPanel
+            dark={dark}
+            history={history}
+            onRerun={h => { handleRerun(h); setView("results"); }}
+            onClear={() => setHistory([])}
+          />
+        )}
+        {view === "settings" && (
+          <SettingsPanel
+            dark={dark}
+            defaultDrives={defaultDrives}
+            setDefaultDrives={setDefaultDrives}
+            maxResults={maxResults}
+            setMaxResults={setMaxResults}
+            showHidden={showHidden}
+            setShowHidden={setShowHidden}
+            exportPath={exportPath}
+            setExportPath={setExportPath}
+          />
+        )}
+      </main>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
