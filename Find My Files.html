@@ -394,6 +394,32 @@ function ResultsTable({ dark, results, query, drives, ext, onNewSearch }) {
 
   return (
     <div style={{ display:"flex", flexDirection:"column", height:"100%", overflow:"hidden" }}>
+      {results.length === 0 ? (
+        <div style={{
+          display: "flex", flexDirection: "column", alignItems: "center",
+          justifyContent: "center", flex: 1, padding: "48px 24px", textAlign: "center",
+        }}>
+          <div style={{
+            width: 52, height: 52, borderRadius: 14,
+            background: "rgba(239,68,68,.1)",
+            border: "1px solid rgba(239,68,68,.2)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 24, marginBottom: 16,
+          }}>🔍</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: ink, marginBottom: 8, letterSpacing: "-0.01em" }}>
+            No files found
+          </div>
+          <div style={{ fontSize: 13, color: subtle, maxWidth: 300, lineHeight: 1.7, marginBottom: 20 }}>
+            No files matching <strong style={{ color: ink, fontFamily: "Geist Mono, monospace" }}>"{query}"</strong> were
+            found on <span style={{ fontFamily: "Geist Mono, monospace" }}>{drives.join("  ")}</span>.
+            Try a shorter search term or add more drives.
+          </div>
+          <Button variant="secondary" dark={dark} icon="arrow-left" small onClick={onNewSearch}>
+            New Search
+          </Button>
+        </div>
+      ) : (
+      <>
       {/* Toolbar */}
       <div style={{ padding:"20px 28px 14px", flexShrink:0 }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
@@ -497,6 +523,8 @@ function ResultsTable({ dark, results, query, drives, ext, onNewSearch }) {
           </div>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }
