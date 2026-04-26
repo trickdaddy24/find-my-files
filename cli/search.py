@@ -58,10 +58,14 @@ def search(
                     st = os.stat(full)
                 except OSError:
                     continue
+                try:
+                    modified = datetime.fromtimestamp(st.st_mtime).strftime("%Y-%m-%d")
+                except (OSError, OverflowError, ValueError):
+                    modified = "1970-01-01"
                 yield {
                     "name": filename,
                     "path": dirpath,
                     "size": _human_size(st.st_size),
-                    "modified": datetime.fromtimestamp(st.st_mtime).strftime("%Y-%m-%d"),
+                    "modified": modified,
                     "ext": file_ext,
                 }

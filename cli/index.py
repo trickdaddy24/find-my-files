@@ -78,11 +78,15 @@ def build(drive: str, exclude_dirs: list[str], on_dir=None) -> int:
                 st = os.stat(full)
             except OSError:
                 continue
+            try:
+                modified = datetime.fromtimestamp(st.st_mtime).strftime("%Y-%m-%d")
+            except (OSError, OverflowError, ValueError):
+                modified = "1970-01-01"
             rows.append((
                 filename,
                 dirpath,
                 _human_size(st.st_size),
-                datetime.fromtimestamp(st.st_mtime).strftime("%Y-%m-%d"),
+                modified,
                 ext,
                 drive,
             ))
