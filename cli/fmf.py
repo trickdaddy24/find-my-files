@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+"""Find My Files CLI — interactive drive search wizard."""
+__version__ = "0.2.0"
+
 import re
 import sys
 from pathlib import Path

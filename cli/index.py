@@ -112,6 +112,9 @@ def query(
     ext_filter: str | None,
 ) -> list[dict]:
     """Search the index. SQL filters extension + plain-text name; regex applied in Python."""
+    if not drives:
+        return []
+
     norm_ext = _normalize_ext(ext_filter) if ext_filter else None
 
     conditions = ["drive IN (" + ",".join("?" * len(drives)) + ")"]
