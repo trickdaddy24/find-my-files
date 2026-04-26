@@ -11,7 +11,7 @@ DEFAULTS = {
     "term": "",
     "use_regex": False,
     "ext_filter": "",
-    "exclude_dirs": ["node_modules", ".git", "Windows"],
+    "exclude_dirs": ["node_modules", ".git", "Windows", "$RECYCLE.BIN", "System Volume Information"],
     "output_formats": ["CSV"],
     "output_path": "",
 }

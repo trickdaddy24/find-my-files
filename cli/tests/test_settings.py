@@ -8,7 +8,7 @@ def test_load_returns_defaults_when_file_missing(tmp_path):
          patch.object(settings, "SETTINGS_DIR", tmp_path):
         result = settings.load()
     assert result["mode"] == "Name search"
-    assert result["exclude_dirs"] == ["node_modules", ".git", "Windows"]
+    assert result["exclude_dirs"] == ["node_modules", ".git", "Windows", "$RECYCLE.BIN", "System Volume Information"]
     assert result["drives"] == []
     assert result["use_regex"] is False
 
@@ -49,7 +49,7 @@ def test_load_merges_partial_file_with_defaults(tmp_path):
         result = settings.load()
     assert result["mode"] == "Extension only"
     # Default filled in for missing key
-    assert result["exclude_dirs"] == ["node_modules", ".git", "Windows"]
+    assert result["exclude_dirs"] == ["node_modules", ".git", "Windows", "$RECYCLE.BIN", "System Volume Information"]
 
 
 def test_load_returns_defaults_on_corrupt_json(tmp_path):
