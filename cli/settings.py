@@ -11,7 +11,7 @@ DEFAULTS = {
     "term": "",
     "use_regex": False,
     "ext_filter": "",
-    "exclude_dirs": ["node_modules", ".git", "Windows", "$RECYCLE.BIN", "System Volume Information"],
+    "exclude_dirs": ["node_modules", ".git", "Windows", "$RECYCLE.BIN", "System Volume Information", ".venv", "venv", "__pycache__", ".mypy_cache", ".pytest_cache"],
     "output_formats": ["CSV"],
     "output_path": "",
 }
