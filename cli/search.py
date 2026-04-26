@@ -18,12 +18,12 @@ def _normalize_ext(ext: str) -> str:
 
 
 def search(
-    drives: list,
+    drives: list[str],
     term: str | None,
     use_regex: bool,
     ext_filter: str | None,
-    exclude_dirs: list,
-) -> list:
+    exclude_dirs: list[str],
+) -> list[dict]:
     results = []
     pattern = re.compile(term, re.IGNORECASE) if (term and use_regex) else None
     norm_ext = _normalize_ext(ext_filter) if ext_filter else None
@@ -33,6 +33,7 @@ def search(
         for dirpath, dirnames, filenames in os.walk(drive, onerror=lambda _: None):
             dirnames[:] = [d for d in dirnames if d.lower() not in exclude_set]
             for filename in filenames:
+                file_ext = Path(filename).suffix.lstrip(".").lower()
                 # Name match
                 if term:
                     if pattern:
@@ -42,10 +43,8 @@ def search(
                         if term.lower() not in filename.lower():
                             continue
                 # Extension match
-                if norm_ext:
-                    file_ext = Path(filename).suffix.lstrip(".").lower()
-                    if file_ext != norm_ext:
-                        continue
+                if norm_ext and file_ext != norm_ext:
+                    continue
                 # Stat
                 full = os.path.join(dirpath, filename)
                 try:
@@ -57,8 +56,9 @@ def search(
                     "path": dirpath,
                     "size": _human_size(st.st_size),
                     "modified": datetime.fromtimestamp(st.st_mtime).strftime("%Y-%m-%d"),
-                    "ext": Path(filename).suffix.lstrip(".").lower(),
+                    "ext": file_ext,
                 })
 
+    # ISO date strings (YYYY-MM-DD) sort lexicographically == chronologically
     results.sort(key=lambda r: r["modified"], reverse=True)
     return results
