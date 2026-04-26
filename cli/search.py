@@ -59,6 +59,4 @@ def search(
                     "ext": file_ext,
                 })
 
-    # ISO date strings (YYYY-MM-DD) sort lexicographically == chronologically
-    results.sort(key=lambda r: r["modified"], reverse=True)
     return results

@@ -14,6 +14,7 @@ def _timestamp() -> str:
 
 def write_csv(results: list[dict], output_dir: str | Path, ts: str | None = None) -> str:
     ts = ts or _timestamp()
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
     filepath = str(Path(output_dir) / f"fmf-results-{ts}.csv")
     with open(filepath, "w", newline="", encoding="utf-8-sig") as f:
         writer = csv.DictWriter(f, fieldnames=FIELDS)
@@ -24,6 +25,7 @@ def write_csv(results: list[dict], output_dir: str | Path, ts: str | None = None
 
 def write_json(results: list[dict], output_dir: str | Path, ts: str | None = None) -> str:
     ts = ts or _timestamp()
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
     filepath = str(Path(output_dir) / f"fmf-results-{ts}.json")
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2)

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import re
 import sys
 from pathlib import Path
 
@@ -69,6 +70,12 @@ def _ask_term(saved_term: str, saved_regex: bool) -> tuple:
         ).ask()
         if use_regex is None:
             sys.exit(0)
+        if use_regex:
+            try:
+                re.compile(term)
+            except re.error as exc:
+                console.print(f"[red]Invalid regex: {exc}. Falling back to plain text.[/red]")
+                use_regex = False
 
     return term, use_regex
 
