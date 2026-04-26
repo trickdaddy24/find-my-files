@@ -1,3 +1,4 @@
+import copy
 import json
 from pathlib import Path
 
@@ -18,18 +19,21 @@ DEFAULTS = {
 
 def load() -> dict:
     if not SETTINGS_FILE.exists():
-        return DEFAULTS.copy()
+        return copy.deepcopy(DEFAULTS)
     try:
         with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
             saved = json.load(f)
-        merged = DEFAULTS.copy()
+        merged = copy.deepcopy(DEFAULTS)
         merged.update(saved)
         return merged
     except (json.JSONDecodeError, OSError):
-        return DEFAULTS.copy()
+        return copy.deepcopy(DEFAULTS)
 
 
 def save(data: dict) -> None:
-    SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
-    with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
+    try:
+        SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
+        with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+    except OSError:
+        pass
