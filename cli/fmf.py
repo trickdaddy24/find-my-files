@@ -157,18 +157,21 @@ def run():
     if not go:
         sys.exit(0)
 
-    # Search
+    # Search — stream results live, updating status per file found
     results = []
-    with console.status("[cyan]Scanning...[/cyan]") as status:
-        for drive in drives:
-            status.update(f"[cyan]Scanning {drive}...[/cyan]")
-            results.extend(search_module.search(
-                drives=[drive],
-                term=term,
-                use_regex=use_regex,
-                ext_filter=ext_filter,
-                exclude_dirs=exclude_dirs,
-            ))
+    with console.status("") as status:
+        for r in search_module.search(
+            drives=drives,
+            term=term,
+            use_regex=use_regex,
+            ext_filter=ext_filter,
+            exclude_dirs=exclude_dirs,
+        ):
+            results.append(r)
+            status.update(
+                f"[cyan]{r['path']}[/cyan]  "
+                f"[green]{len(results)} found[/green]"
+            )
 
     results.sort(key=lambda r: r["modified"], reverse=True)
 

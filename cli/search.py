@@ -23,8 +23,8 @@ def search(
     use_regex: bool,
     ext_filter: str | None,
     exclude_dirs: list[str],
-) -> list[dict]:
-    results = []
+):
+    """Generator — yields one result dict per matching file as it is found."""
     pattern = re.compile(term, re.IGNORECASE) if (term and use_regex) else None
     norm_ext = _normalize_ext(ext_filter) if ext_filter else None
     exclude_set = {d.lower() for d in exclude_dirs}
@@ -51,12 +51,10 @@ def search(
                     st = os.stat(full)
                 except OSError:
                     continue
-                results.append({
+                yield {
                     "name": filename,
                     "path": dirpath,
                     "size": _human_size(st.st_size),
                     "modified": datetime.fromtimestamp(st.st_mtime).strftime("%Y-%m-%d"),
                     "ext": file_ext,
-                })
-
-    return results
+                }
