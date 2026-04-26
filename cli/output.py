@@ -3,6 +3,8 @@ import json
 from datetime import datetime
 from pathlib import Path
 
+# Required keys in each result dict passed to write_* functions.
+# Matches the fields returned by search.search().
 FIELDS = ["name", "path", "size", "modified", "ext"]
 
 
@@ -10,7 +12,7 @@ def _timestamp() -> str:
     return datetime.now().strftime("%m%d%Y-%H%M%S")
 
 
-def write_csv(results: list[dict], output_dir: str, ts: str | None = None) -> str:
+def write_csv(results: list[dict], output_dir: str | Path, ts: str | None = None) -> str:
     ts = ts or _timestamp()
     filepath = str(Path(output_dir) / f"fmf-results-{ts}.csv")
     with open(filepath, "w", newline="", encoding="utf-8-sig") as f:
@@ -20,7 +22,7 @@ def write_csv(results: list[dict], output_dir: str, ts: str | None = None) -> st
     return filepath
 
 
-def write_json(results: list[dict], output_dir: str, ts: str | None = None) -> str:
+def write_json(results: list[dict], output_dir: str | Path, ts: str | None = None) -> str:
     ts = ts or _timestamp()
     filepath = str(Path(output_dir) / f"fmf-results-{ts}.json")
     with open(filepath, "w", encoding="utf-8") as f:
@@ -28,7 +30,7 @@ def write_json(results: list[dict], output_dir: str, ts: str | None = None) -> s
     return filepath
 
 
-def write_outputs(results: list[dict], output_dir: str, formats: list[str]) -> list[str]:
+def write_outputs(results: list[dict], output_dir: str | Path, formats: list[str]) -> list[str]:
     ts = _timestamp()
     paths = []
     if "CSV" in formats:
