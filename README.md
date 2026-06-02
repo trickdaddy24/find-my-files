@@ -1,3 +1,5 @@
+<div align="center">
+
 # 🔍 Find My Files
 
 > A fast, cross-drive file search utility for Windows — built with Electron + Node.js.
@@ -6,6 +8,8 @@
 [![Version](https://img.shields.io/badge/version-0.1.0-2EC7FF.svg)](CHANGELOG.md)
 [![Platform](https://img.shields.io/badge/platform-Windows-blue.svg)]()
 [![Built With](https://img.shields.io/badge/built%20with-Electron-47848F.svg)](https://www.electronjs.org/)
+
+</div>
 
 ---
 
